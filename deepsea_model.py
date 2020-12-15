@@ -2,7 +2,7 @@ import math
 
 import tensorflow as tf
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.app.flags.FLAGS  # 传递参数
 tf.app.flags.DEFINE_float('stdv', 0, 'stddev for weight initialization')
 tf.app.flags.DEFINE_float('lambda1', 5e-7, 'l2 regularization coefficient')
 tf.app.flags.DEFINE_float('lambda2', 1e-8, 'l1 sparsity coefficient')
@@ -14,8 +14,8 @@ NUM_OUTPUTS = 919
 
 
 def _activation_summary(x):
-    tf.summary.histogram(x.op.name + '/activations', x)
-    tf.summary.scalar(x.op.name + '/sparsity', tf.nn.zero_fraction(x))
+    tf.summary.histogram(x.op.name + '/activations', x)  # 显示直方图信息
+    tf.summary.scalar(x.op.name + '/sparsity', tf.nn.zero_fraction(x))  # 显示标量信息
 
 
 def _weight_variable_with_l2_loss(name, shape, wd):
@@ -23,10 +23,10 @@ def _weight_variable_with_l2_loss(name, shape, wd):
         initializer = tf.contrib.layers.variance_scaling_initializer()
     else:
         initializer = tf.random_uniform_initializer(
-            -math.sqrt(3)*FLAGS.stdv, math.sqrt(3)*FLAGS.stdv)
-    var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32)
-    l2_loss = tf.multiply(tf.nn.l2_loss(var), wd, name='l2_loss')
-    tf.add_to_collection('losses', l2_loss)
+            -math.sqrt(3)*FLAGS.stdv, math.sqrt(3)*FLAGS.stdv)  # 生成均匀分布张量初始化器的类。参数随机范围下限和上限
+    var = tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32)  # 获取或者创建变量，变量名字、维度、初始化值，数值类型
+    l2_loss = tf.multiply(tf.nn.l2_loss(var), wd, name='l2_loss')  # 两个矩阵中对应元素各自相乘
+    tf.add_to_collection('losses', l2_loss)  # 把变量放入一个集合，把很多变量变成一个列表
     return var
 
 
