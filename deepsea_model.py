@@ -17,7 +17,7 @@ def _activation_summary(x):
     tf.summary.histogram(x.op.name + '/activations', x)  # 显示直方图信息
     tf.summary.scalar(x.op.name + '/sparsity', tf.nn.zero_fraction(x))  # 显示标量信息
 
-
+# 创建一组权重数据
 def _weight_variable_with_l2_loss(name, shape, wd):
     if FLAGS.stdv == 0:
         initializer = tf.contrib.layers.variance_scaling_initializer()
@@ -29,7 +29,7 @@ def _weight_variable_with_l2_loss(name, shape, wd):
     tf.add_to_collection('losses', l2_loss)  # 把变量放入一个集合，把很多变量变成一个列表
     return var
 
-
+# 创建一组biase数据
 def _bias_variable(name, shape):
     if FLAGS.stdv == 0:
         initializer = tf.constant_initializer(0.0)
@@ -40,14 +40,15 @@ def _bias_variable(name, shape):
 
 
 def build_model(seqs, batch_size, training=True):
+    # X*weight+biase
     with tf.variable_scope('conv1') as scope:
         kernel = _weight_variable_with_l2_loss(
-            'weights', [1, 8, 4, CONV1_OUT_CHANNELS], FLAGS.lambda1)
-        tf.add_to_collection('weights', kernel)
-        conv = tf.nn.conv2d(seqs, kernel, [1, 1, 1, 1], padding='VALID')
-        biases = _bias_variable('biases', [CONV1_OUT_CHANNELS])
-        conv1 = tf.nn.relu(tf.nn.bias_add(conv, biases), name=scope.name)
-        _activation_summary(conv1)
+            'weights', [1, 8, 4, CONV1_OUT_CHANNELS], FLAGS.lambda1)  # 创建一组权重数据
+        tf.add_to_collection('weights', kernel)  # 把变量放入一个集合，把很多变量变成一个列表
+        conv = tf.nn.conv2d(seqs, kernel, [1, 1, 1, 1], padding='VALID')  # 卷积
+        biases = _bias_variable('biases', [CONV1_OUT_CHANNELS])  # 创建一组biase数据
+        conv1 = tf.nn.relu(tf.nn.bias_add(conv, biases), name=scope.name)  #  一个叫bias的向量加到一个叫value的矩阵上，是向量与矩阵的每一行进行相加，得到的结果和value矩阵大小相同
+        _activation_summary(conv1)  #  函数_activation_summary可以为每一层激活值创建summary，而无任何返回值，既然没有返回值，也就说明没有数据的流动，也就是并非有意义的节点；
 
     pool1 = tf.nn.max_pool(
         conv1, ksize=[1, 1, 4, 1], strides=[1, 1, 4, 1], padding='VALID', name='pool1')
@@ -68,7 +69,7 @@ def build_model(seqs, batch_size, training=True):
 
     with tf.variable_scope('conv3') as scope:
         kernel = _weight_variable_with_l2_loss(
-            'weights', [1, 8, CONV2_OUT_CHANNELS, CONV3_OUT_CHANNELS], FLAGS.lambda1)
+            'weights', [1, 8, CONV2_OUT_CHANNELS, CONV3_OUT_CHANNELS], FLAGS.lambda1)  # 
         tf.add_to_collection('weights', kernel)
         conv = tf.nn.conv2d(dropout2, kernel, [1, 1, 1, 1], padding='VALID')
         biases = _bias_variable('biases', [CONV3_OUT_CHANNELS])
@@ -83,7 +84,7 @@ def build_model(seqs, batch_size, training=True):
         weights = _weight_variable_with_l2_loss('weights', [dim, NUM_OUTPUTS], FLAGS.lambda1)
         tf.add_to_collection('weights', weights)
         biases = _bias_variable('biases', [NUM_OUTPUTS])
-        fc4 = tf.nn.relu_layer(reshape, weights, biases, name=scope.name)
+        fc4 = tf.nn.relu_layer(reshape, weights, biases, name=scope.name)  # 激活函数 fc4 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=None)
         _activation_summary(fc4)
 
     with tf.variable_scope('sigmoid_linear') as scope:
@@ -91,8 +92,9 @@ def build_model(seqs, batch_size, training=True):
             'weights', [NUM_OUTPUTS, NUM_OUTPUTS], FLAGS.lambda1)
         tf.add_to_collection('weights', weights)
         biases = _bias_variable('biases', [NUM_OUTPUTS])
-        sigmoid_linear = tf.nn.xw_plus_b(fc4, weights, biases, name=scope.name)
-        l1_loss = tf.multiply(tf.reduce_sum(tf.abs(sigmoid_linear)), FLAGS.lambda2, name='l1_loss')
+        sigmoid_linear = tf.nn.xw_plus_b(fc4, weights, biases, name=scope.name)  # 相当于matmul(fc4, weights) + biases
+        l1_loss = tf.multiply(tf.reduce_sum(tf.abs(sigmoid_linear)), FLAGS.lambda2, name='l1_loss')  # 压缩求和，用于降维，总的求和，按行求和（1），按列求和（0）
+        # multiply 两个矩阵中对应元素各自相乘，两个相乘的数必须有相同的数据类型
         tf.add_to_collection('losses', l1_loss)
         _activation_summary(sigmoid_linear)
 
@@ -110,16 +112,16 @@ def apply_max_norm(weights, max_norm):
 
 
 def cross_entropy_loss(logits, labels):
-    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(
+    cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(  # 计算具有权重的sigmoid交叉熵
         labels=labels, logits=logits, name='cross_entropy_per_example')
-    cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+    cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')  # 求平均
     return cross_entropy_mean
 
 
 def loss(logits, labels):
     cross_entropy_mean = cross_entropy_loss(logits, labels)
     tf.add_to_collection('losses', cross_entropy_mean)
-    return tf.add_n(tf.get_collection('losses'), name='total_loss')
+    return tf.add_n(tf.get_collection('losses'), name='total_loss')  # 实现一个列表的元素的相加
 
 
 def mean_cross_entropy_loss(logits, labels):
